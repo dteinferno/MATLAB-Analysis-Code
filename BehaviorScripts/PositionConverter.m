@@ -1,10 +1,10 @@
 %Calculate forward and rotational positions from dx, dy values
 
 function [posRot, posFor, posLat] = PositionConverter(positionDat)
-    Cam1RotCalibfact = 1.15;
-    Cam2RotCalibfact = 0.93;
-    Cam1PosCalibfact = 125;
-    Cam2PosCalibfact = 153;
+    Cam1RotCalibfact = 1.14;%1.15;
+    Cam2RotCalibfact = 1.14;%0.93;
+    Cam1PosCalibfact = 126;%125;
+    Cam2PosCalibfact = 126;%153;
     flyAng = 30*pi/180;
 
     dxmod0 = double(positionDat.dx0).*cos(flyAng) + double(positionDat.dy0).*sin(flyAng);

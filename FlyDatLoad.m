@@ -33,7 +33,7 @@ function cond = FlyDatLoad(numColors)
             for fileID = 3:length(fileNames)
                 fileName = fileNames(fileID).name;
                 % check to see if the file is the pre-processed data
-                if strcmpi(fileName(end-2:end),'mat') & ~strcmpi(fileName(end-7:end-4),'ROIs')
+                if strcmpi(fileName(end-2:end),'mat') & ~strcmpi(fileName(end-7:end-4),'ROIs') & ~strcmpi(fileName(end-9:end-4),'RegDat')
                     nameParts = strsplit(fileName,'_');
                     % specify the fly name
 %                     flyName = strcat(dirParts{end},'-',nameParts{1},'-',nameParts{4});
