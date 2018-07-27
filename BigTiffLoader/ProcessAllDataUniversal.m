@@ -5,22 +5,37 @@ clc;
 %% Get the directories and, for each directory, 
 % the number of flies, the region that is being imaged, and whether one or two color imaging was performed.
 % Go to the root directory
-dirRoot = uigetdir('C:\Users\turnerevansd\Downloads\Data','Select the root directory');
+addpath('/Users/loaner/Documents/MATLAB/analysis_code/ScanImageTiffReader-1.1-Darwin/share/matlab');
+addpath('/Users/loaner/Documents/MATLAB/analysis_code/ImagingDataScripts')%Kris
+addpath('/Users/loaner/Documents/MATLAB/analysis_code/BehaviorScripts')
+addpath('/Users/loaner/Documents/MATLAB/analysis_code/DrosteEffect-BrewerMap-04533de');
+addpath('/Users/loaner/Documents/MATLAB/analysis_code/DrosteEffect-BrewerMap-04533de');
+addpath( '/Users/loaner/Documents/MATLAB/line_specific');
+addpath( '/Users/loaner/Documents/MATLAB/analysis_code');
+addpath( '/Users/loaner/Documents/MATLAB/analysis_code/distributionPlot/distributionPlot');
+%dirRoot = uigetdir('C:\Users\turnerevansd\Downloads\Data','Select the root directory');
+dirRoot = '/Users/loaner/Documents/MATLAB/analysis_code';
 cd(dirRoot);
 % Specify the directories
-numDirs = input('Number of directories? ');
+%numDirs = input('Number of directories? ');
+numDirs = 1; %Kris
 allPathname = cell(numDirs,1);
+
 for dirNow = 1:numDirs
-    allPathname{dirNow}.name = uigetdir('C:\Users\turnerevansd\Downloads\Data','Select the directory');
-    allPathname{dirNow}.numFlies = input('Number of flies? ');
-    allPathname{dirNow}.numColors = input('1 or 2 color imaging? ');
+    %allPathname{dirNow}.name = uigetdir('C:\Users\turnerevansd\Downloads\Data','Select the directory');
+    allPathname{dirNow}.name = '/Users/loaner/Documents/Imaging/G_PEN1-R_EPG_test'; %Kris
+    %allPathname{dirNow}.numFlies = input('Number of flies? ');
+    allPathname{dirNow}.numFlies = 1; %Kris
+    %allPathname{dirNow}.numColors = input('1 or 2 color imaging? ');
+    allPathname{dirNow}.numColors = 2; %Kris
     for colorID = 1:allPathname{dirNow}.numColors
         if colorID == 1
             colorName = 'Green';
         else
             colorName = 'Red';
         end
-        allPathname{dirNow}.imRegion{colorID} = input(strcat(colorName, ' region that was imaged? (EB,PB,FB,NO,other) '));
+        %allPathname{dirNow}.imRegion{colorID} = input(strcat(colorName, ' region that was imaged? (EB,PB,FB,NO,other) '));
+        allPathname{dirNow}.imRegion{colorID} = 'EB'; %Kris
         while ~(strcmp(allPathname{dirNow}.imRegion{colorID},'EB') ||...
                 strcmp(allPathname{dirNow}.imRegion{colorID},'PB') ||...
                 strcmp(allPathname{dirNow}.imRegion{colorID},'FB') ||...
@@ -43,18 +58,23 @@ end
 for dirNow = 1:numDirs
     fileNames = dir(allPathname{dirNow}.name);
     cd(allPathname{dirNow}.name);
-    allPathnameNow = strcat(allPathname{dirNow}.name,'\');
-    for tifID = 3:length(fileNames)
+    allPathnameNow = strcat('/',allPathname{dirNow}.name,'/');
+    for tifID = 3:length(fileNames) %for each tif
         tifName = fileNames(tifID).name;
         % Process each trial
-        if strcmp(tifName(end-3:end),'.tif') & ~contains(tifName,'Anatomy')
-            tifName
+        %tifName
+        if strcmp(tifName(end-3:end),'.tif') %& ~contains(tifName,'Anatomy') if it's actually a tif
+            display(tifName)
+            display(allPathnameNow)
+            display('new ROI')
+            %check ROIs
             ROIs = SetROIs(allPathnameNow,tifName,allPathname{dirNow}.imRegion,allPathname{dirNow}.numColors);
             
-            newPath = strrep(allPathnameNow,'Downloads\Data','Documents\RawAnalysis');
+            newPath = strrep(allPathnameNow,'Downloads/Data','Documents/RawAnalysis');
             ROIfName = strcat(newPath,tifName(1:end-4));
     
-            save(strcat(ROIfName,'_ROIs','.mat'), 'ROIs');
+            save(strcat(ROIfName,'_ROIs','.mat'), 'ROIs'); %what are these mats?
+            display('saved ROIs')
             clear ROIs;
         end
     end 
@@ -65,14 +85,17 @@ end
 for dirNow = 1:numDirs
     fileNames = dir(allPathname{dirNow}.name);
     cd(allPathname{dirNow}.name);
-    allPathnameNow = strcat(allPathname{dirNow}.name,'\');
+    allPathnameNow = strcat(allPathname{dirNow}.name,'/');
     for tifID = 3:length(fileNames)
         tifName = fileNames(tifID).name;
+        display(tifName)
         % Process each trial
         if strcmp(tifName(end-3:end),'.tif')
             % Extract the position and DF/F values
             for moveID = 3:length(fileNames)
-                moveName =fileNames(moveID).name;
+
+                moveName = fileNames(moveID).name;
+                %display(moveName)
                 tifNameParts = strsplit(tifName,'_');
                 moveNameParts = strsplit(moveName,'_');
                 % Find the associated position data 
@@ -81,9 +104,11 @@ for dirNow = 1:numDirs
                         strcmp(tifName(1:4),moveName(1:4)) &...
                         strcmp(moveNameParts{end-1},tifNameParts{end-1}) & ...
                         strcmp(moveNameParts{end-2},tifNameParts{end-2}))
-                    moveName
+                    display('found file')
+                    display(moveName)
                     
                     % Load the stacks
+                    display('loading stacks')
                     if strcmp(allPathname{dirNow}.imRegion{1},'EB') || strcmp(allPathname{dirNow}.imRegion{1},'FB')
                         rotAng = -70;
                     else
@@ -103,9 +128,13 @@ for dirNow = 1:numDirs
                         end
                     elseif allPathname{dirNow}.numColors == 2
                         [RstackMaxInt, GstackMaxInt, RstackMean, GstackMean] =...
-                            ImDatLoadBigtiff2Color(tifName,allPathnameNow,0);
+                            ImDatLoadBigtiff2Color(tifName,allPathnameNow,0); %256x256 image for each timepoint
+                        %this is the data from a max int projection as a
+                        %256*256 grid. Calculate normalized RMSD between
+                        %these two vs. time/velocity?
                         clear RstackMean GstackMean;
                         [GstackReg RstackReg] = imRegSimple2Color(GstackMaxInt, RstackMaxInt, 10); % Image correct the stacks
+                        %these are the image corrected stacks??
                         % Rotate the stacks so that the EB is aligned
                         RMean = mean(RstackReg,3);
                         RMean = imrotate(RMean,rotAng);
@@ -117,24 +146,32 @@ for dirNow = 1:numDirs
                             RstackMaxIntRot(:,:,frame) = imrotate(RstackReg(:,:,frame),rotAng);
                             GstackMaxIntRot(:,:,frame) = imrotate(GstackReg(:,:,frame),rotAng);
                         end
+                        %these are rotated appropriately - finished messing
+                        %with them
                     end
                     
                     % Load the movement data
                     positionDat = VRDatLoad(moveName,allPathnameNow,0);
+                    
+                    display('loaded')
                     
                     % Load the ROIs
                     newPath = strrep(allPathnameNow,'Downloads\Data','Documents\RawAnalysis');
                     ROIfName = strcat(newPath,tifName(1:end-4));
                     load(strcat(ROIfName,'_ROIs','.mat'));
                     numROIsG=size(ROIs{1},1);
+                    display('loaded things for Gaussian')
                     if allPathname{dirNow}.numColors == 2
                         numROIsR=size(ROIs{2},1);
                     end
+                    display('loaded ROI')
                     if allPathname{dirNow}.numColors == 1
                         numPlanes = length(positionDat.tFrameGrab)/length(stackMaxInt);
                     elseif allPathname{dirNow}.numColors == 2
                         numPlanes = length(positionDat.tFrameGrab)/length(RstackMaxInt);
                     end
+                    
+                    display('starting Gaussian')
 
                     % Gaussian Filter
                     gaussianSize = [2 2];
@@ -201,8 +238,8 @@ for dirNow = 1:numDirs
                     elseif allPathname{dirNow}.numColors == 2
                         RROIaveREFMax = zeros(numROIsR,size(RstackXYfiltMax,3));
                         GROIaveREFMax = zeros(numROIsG,size(GstackXYfiltMax,3));
-                        RROIs = squeeze(ROIs{2});
-                        GROIs = squeeze(ROIs{1});
+                        RROIs = squeeze(ROIs{2}); %defines ROIs for red
+                        GROIs = squeeze(ROIs{1}); %defines ROIs for green
                         for i = 1:size(RstackXYfiltMax,3)
                             if mod(i,10)==0
                                 waitbar(i/size(RstackXYfiltMax,3),h,['Calculating frame# ' num2str(i) ' out of ' num2str(size(RstackXYfiltMax,3))]);
@@ -230,6 +267,7 @@ for dirNow = 1:numDirs
                         for incROI = 1:numROIsR
                             RROILowMax = sort(squeeze(RROIaveREFMax(incROI,:)));
                             RROIaveMax(incROI,:) = RROIaveREFMax(incROI,:)./mean(RROILowMax(1:floor(end/10)));
+                            %average max intensity over the ROI??
                         end
 
                         save(strcat(ROIfName,'.mat'), 'RROIaveMax','GROIaveMax','positionDat');
@@ -246,23 +284,28 @@ for dirNow = 1:numDirs
                         GROIaveMaxFilt = sgolayfilt(GROIaveMax,sgolayOrder,sgolayWindow,[],2);
                     end
                     
-                    tSpan = positionDat.t - positionDat.t(1) + positionDat.tVR(1)/10000;
+                    tSpan = positionDat.t - positionDat.t(1) + positionDat.tVR(1)/10000; %corrected times
                     minFG = ceil(min(find(positionDat.tFrameGrab >= positionDat.tVR(1)))/numPlanes);
                     maxFG = round(length(positionDat.tFrameGrab)/numPlanes);
+                    %divide by number of planes to get timepoints rather
+                    %than frames (e.g. 10 frames per cycle - divide by 10)
                     positionDat.num_planes = numPlanes;
-                    positionDat.minFG = minFG;
+                    positionDat.minFG = minFG;%time of start and stop of imaging?
                     positionDat.maxFG = maxFG;
 
                     % convert the raw ball position data to position (in case
                     % the visual display is not closed loop with a gain of 1)
-                    [posRot, posFor, posLat] = PositionConverter(positionDat);
+                    [posRot, posFor, posLat] = PositionConverter(positionDat); %what are these? posRot is fly orientation
+                    %postition as a function of time but how is it quantified?
+                    
+                    display('got positions')
 
                     % Match the position data to the framegrab times
-                    OffsetRotMatch = MatchData(positionDat.t,positionDat);
-                    OffsetRotMatch(:,2) = MatchData(pi/180*positionDat.OffsetRot,positionDat);
+                    OffsetRotMatch = MatchData(positionDat.t,positionDat); %store times
+                    OffsetRotMatch(:,2) = MatchData(pi/180*positionDat.OffsetRot,positionDat); %store stripe position
                     OffsetForMatch = MatchData(positionDat.OffsetFor,positionDat);
                     OffsetLatMatch = MatchData(positionDat.OffsetLat,positionDat);
-                    PosRotMatch = MatchData(posRot,positionDat);
+                    PosRotMatch = MatchData(posRot,positionDat); %adjusts times - takes data at times
                     PosForMatch = MatchData(posFor,positionDat);
                     PosLatMatch = MatchData(posLat,positionDat);
 
@@ -272,8 +315,8 @@ for dirNow = 1:numDirs
                     % Plot the activity
                     subplot(4,1,1);
                     hold on;
-                    plot(OffsetRotMatch(:,1),OffsetRotMatch(:,2),'b');
-                    plot(OffsetRotMatch(:,1),pi/180*PosRotMatch,'k');
+                    plot(OffsetRotMatch(:,1),OffsetRotMatch(:,2),'b'); %offset vs time. Offset is position of stripe
+                    plot(OffsetRotMatch(:,1),pi/180*PosRotMatch,'k'); %this is the actual heading
                     legend({'stripe','heading'});
                     ylabel('position (rad)');
                     ylim([-pi pi]);
@@ -283,6 +326,7 @@ for dirNow = 1:numDirs
                     if allPathname{dirNow}.numColors == 1
                         subplot(4,1,2);
                         imagesc(OffsetRotMatch(:,1),[1:numROIsG],flipud(ROIaveMaxFilt));
+                        %time, range(ROIs), flip ROIs upsidedown.
                         title('maximum intensity');
                         xlabel('time (sec)');
                         xlim([OffsetRotMatch(1,1) OffsetRotMatch(end,1)]);
@@ -294,6 +338,8 @@ for dirNow = 1:numDirs
                
                         subplot(4,1,3);
                         imagesc(OffsetRotMatch(:,1),[1:numROIsG],flipud(GROIaveMaxFilt));
+                        %plot heatmap for times of intensities for each
+                        %region
                         title('green maximum intensity');
                         xlim([OffsetRotMatch(1,1) OffsetRotMatch(end,1)]);
                         
@@ -316,9 +362,11 @@ for dirNow = 1:numDirs
 
                     delete(act);
 
-                    clear fullpath stackMaxInt stackReg stackXYfiltMax ROIaveMax positionDat;
+                    %clear fullpath stackMaxInt stackReg stackXYfiltMax ROIaveMax positionDat;
+                    %Kris no longer clear this, want to have a look at it
                 end
             end
         end
-    end    
+    end
+    display('finished')
 end

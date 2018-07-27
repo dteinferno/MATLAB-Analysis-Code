@@ -7,6 +7,7 @@ function GetRefROIs(imRegion,numColors)
     cd(allPathname);
 
     % Get the tiff header info
+
     fullpath = strcat(allPathname,tifName);
     reader = ScanImageTiffReader(fullpath);
     desc = reader.metadata;
@@ -16,6 +17,7 @@ function GetRefROIs(imRegion,numColors)
     num_discards = str2num(desc(discardLoc+26));
 
     % Load the tifStack
+    fullpath;
     vol=ScanImageTiffReader(fullpath).data();
     width = size(vol,1);
     height = size(vol,2);

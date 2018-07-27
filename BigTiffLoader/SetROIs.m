@@ -3,6 +3,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
 
      % Get the tiff header info
     fullpath = strcat(allPathname,tifName);
+    fullpath;
     reader = ScanImageTiffReader(fullpath);
     desc = reader.metadata;
     planeLoc = strfind(desc, 'numFramesPerVolume');
@@ -40,6 +41,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
         end
         delete(h);
     elseif numColors == 2
+        display('finding max int proj')
         RstackMaxInt = double(zeros(height,width,numVolumes));
         GstackMaxInt = double(zeros(height,width,numVolumes));
         RminiStack = double(zeros(height,width,(num_planes-num_discards)));
@@ -81,6 +83,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
             stackMaxIntRot(:,:,frame) = imrotate(stackMaxInt(:,:,frame),rotAng);
         end
     elseif numColors == 2
+        display('rotate')
         RMean = mean(RstackMaxInt,3);
         RMean = imrotate(RMean,rotAng);
         GMean = mean(GstackMaxInt,3);
@@ -94,6 +97,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
     end
 
     % Load the reference ROIs
+    display('loading refs')
     newPath = strrep(allPathname,'Downloads\Data','Documents\RawAnalysis');
     pathParts = strsplit(tifName,'_');
     IDLoc = strfind(tifName,pathParts{end-1});
@@ -102,7 +106,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
     
     % Get the ROIs
     if strcmp(imRegion{1},'EB')
-        numROIsG = 16;
+        numROIsG = 16; %divide EB into 16 regions (demi-wedges)
     elseif strcmp(imRegion{1},'PB')
         numROIsG = 18;
     elseif strcmp(imRegion{1},'FB')
@@ -120,7 +124,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
     end
     if numColors == 2
         if strcmp(imRegion{2},'EB')
-            numROIsR = 16;
+            numROIsR = 16; %divide EB into 16 demiwedges for col2 as well
         elseif strcmp(imRegion{2},'PB')
             numROIsR = 18;
         elseif strcmp(imRegion{2},'FB')
@@ -194,10 +198,11 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
             % Find the change in angles
             deltaAng = 2*pi/numROIsG;
             
+            display('getting ROIs')
              % Get the ROIs for the green channel
             A = mean(GstackMaxIntRot,3);
             hf = figure;
-            hold;
+            hold; %Kris: cba to look at figure for now, just skip this...
             imshow(A,[0 max(max(A))]);
             
             % Specify an outer ellipse
@@ -278,6 +283,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
         end
         
         if strcmp(imRegion{2},'EB')
+            display('second channel');
             % Find the change in angles
             deltaAng = 2*pi/numROIsR;
             
@@ -312,9 +318,10 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
                 end
                 ROIs{2}(incROI,:,:) = roipoly(A, xROI,yROI);
             end
-            
             delete(hf);
+            
         elseif strcmp(imRegion{2},'FB')
+            
             % Show the red channel
             A = mean(RstackMaxIntRot,3);
             hf = figure;
