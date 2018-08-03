@@ -1,26 +1,22 @@
-function cond = FlyDatLoad(numColors, region)
-%%returns cond, an object storing some data for each condition
+function cond = FlyDatLoad(numColors)
+
     %% Prompt the user for the root directory
     %dirRoot = uigetdir('C:/Users/turnerevansd/Documents','Select the root directory');
-    dirRoot = '/Users/loaner/Documents/MATLAB/analysis_code'; %Kris
+    dirRoot = '/Users/loaner/Documents/imaging/Data_Dan/shi'; %Kris
 
     %% Prompt the user for the number of conditions
-    %numConditions = input('# of conditions?');
-    numConditions = 1
+    numConditions = input('# of conditions?');
 
     %% Ask the user for the name of each condition and the directories
     % associated with that condition
     dirL = 0;
-    cond = cell(numConditions,1); %new cell for each condition
+    cond = cell(numConditions,1);
     for condStep = 1:numConditions
-        %cond{condStep}.name = input(strcat('name of cond #',num2str(condStep),'?')); %add name
-        cond{condStep}.name = region %Kris
-        dirL = input(strcat('Total # of dirs for cond:',cond{condStep}.name,'?')); %add dir count
-        %dirL = 1 %Kris
-        cond{condStep}.dirs = cell(dirL,1); %add dirs
+        cond{condStep}.name = input(strcat('name of cond #',num2str(condStep),'?'));
+        dirL = input(strcat('Total # of dirs for cond:',cond{condStep}.name,'?'));
+        cond{condStep}.dirs = cell(dirL,1);
         for dirStep = 1:dirL
             cond{condStep}.dirs{dirStep} = uigetdir(dirRoot,strcat('Specify dir # ',num2str(dirStep)));
-            %cond{condStep}.dirs{dirStep}='/Users/loaner/Documents/Imaging/Data_Dan/EPG_G_GE_R_1' %Kris
         end
     end
 
@@ -32,15 +28,13 @@ function cond = FlyDatLoad(numColors, region)
 
         % step through the directories to load the pre-processed data for each
         % fly
-        for dirStep = 1:length(cond{condStep}.dirs) %for each directory
-            %Can e.g. have multiple directories with the same kind of data
-            %but from different dates
+        for dirStep = 1:length(cond{condStep}.dirs)
             fileNames = dir(cond{condStep}.dirs{dirStep});
             dirParts = strsplit(cond{condStep}.dirs{dirStep},'/');
             for fileID = 3:length(fileNames)
                 fileName = fileNames(fileID).name;
                 % check to see if the file is the pre-processed data
-                if strcmpi(fileName(end-2:end),'mat') & ~strcmpi(fileName(end-7:end-4),'ROIs')
+                if strcmpi(fileName(end-2:end),'mat') & ~strcmpi(fileName(end-7:end-4),'ROIs') & ~strcmpi(fileName(end-9:end-4),'RegDat')
                     nameParts = strsplit(fileName,'_');
                     % specify the fly name
 %                     flyName = strcat(dirParts{end},'-',nameParts{1},'-',nameParts{4});
@@ -73,7 +67,7 @@ function cond = FlyDatLoad(numColors, region)
                         RROIaveMaxFilt = zeros(size(RROIaveMax));
                         GROIaveMaxFilt = zeros(size(GROIaveMax));
                         if ndims(RROIaveMaxFilt) == 2
-                            RROIaveMaxFilt = RROIaveMax; %have data per time per G
+                            RROIaveMaxFilt = RROIaveMax;
                         else
                             for ROIgp=1:size(RROIaveMaxFilt,1)
                                 RROIaveMaxFilt(ROIgp,:,:) = squeeze(RROIaveMax(ROIgp,:,:));
@@ -106,8 +100,6 @@ function cond = FlyDatLoad(numColors, region)
                     % the visual display is not closed loop with a gain of 1)
                     [posRot, posFor, posLat] = PositionConverter(positionDat);
 
-                    %all of this is similar to the other script
-                    
                     % Match the position data to the framegrab times
                     OffsetRotMatch = MatchData(positionDat.t,positionDat);
                     OffsetRotMatch(:,2) = MatchData(pi/180*positionDat.OffsetRot,positionDat);
@@ -179,13 +171,11 @@ function cond = FlyDatLoad(numColors, region)
                                 trialType = strcat('Two',trialType(2:end));
                             end
                             if ismember('30C',fileParts)
-                                trialType = strcat(trialType,'_30C'); %high T; shibire. NO endocytosis
+                                trialType = strcat(trialType,'_30C');
                             end
                             trialID = str2num(fileName(end-5:end-4));
 
                             allFlyData{flyID}.(trialType){trialID}.positionDatMatch = positionDatMatch;
-                            trialType
-                            trialID
                             if numColors == 1
                                 if ndims(ROIaveMaxFilt) == 2
                                     allFlyData{flyID}.(trialType){trialID}.ROIaveMax = ROIaveMaxFilt(:,minFG:maxFG);

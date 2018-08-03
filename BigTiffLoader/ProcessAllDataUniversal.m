@@ -5,16 +5,16 @@ clc;
 %% Get the directories and, for each directory, 
 % the number of flies, the region that is being imaged, and whether one or two color imaging was performed.
 % Go to the root directory
-addpath('/Users/loaner/Documents/MATLAB/analysis_code/ScanImageTiffReader-1.1-Darwin/share/matlab');
-addpath('/Users/loaner/Documents/MATLAB/analysis_code/ImagingDataScripts')%Kris
-addpath('/Users/loaner/Documents/MATLAB/analysis_code/BehaviorScripts')
-addpath('/Users/loaner/Documents/MATLAB/analysis_code/DrosteEffect-BrewerMap-04533de');
-addpath('/Users/loaner/Documents/MATLAB/analysis_code/DrosteEffect-BrewerMap-04533de');
-addpath( '/Users/loaner/Documents/MATLAB/line_specific');
-addpath( '/Users/loaner/Documents/MATLAB/analysis_code');
-addpath( '/Users/loaner/Documents/MATLAB/analysis_code/distributionPlot/distributionPlot');
+addpath('/Users/loaner/Documents/MATLAB/MATLAB-Analysis-Code/ScanImageTiffReader-1.1-Darwin/share/matlab');
+addpath('/Users/loaner/Documents/MATLAB/MATLAB-Analysis-Code/ImagingDataScripts')%Kris
+addpath('/Users/loaner/Documents/MATLAB/MATLAB-Analysis-Code/BehaviorScripts')
+addpath('/Users/loaner/Documents/MATLAB/MATLAB-Analysis-Code/DrosteEffect-BrewerMap-04533de');
+addpath('/Users/loaner/Documents/MATLAB/MATLAB-Analysis-Code/DrosteEffect-BrewerMap-04533de');
+addpath( '/Users/loaner/Documents/MATLAB/MATLAB-Line-Specific-Code');
+addpath( '/Users/loaner/Documents/MATLAB/MATLAB-Analysis-Code');
+addpath( '/Users/loaner/Documents/MATLAB/MATLAB-Analysis-Code/distributionPlot/distributionPlot');
 %dirRoot = uigetdir('C:\Users\turnerevansd\Downloads\Data','Select the root directory');
-dirRoot = '/Users/loaner/Documents/MATLAB/analysis_code';
+dirRoot = '/Users/loaner/Documents/MATLAB/';
 cd(dirRoot);
 % Specify the directories
 %numDirs = input('Number of directories? ');
