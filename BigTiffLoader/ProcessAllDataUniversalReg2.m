@@ -3,7 +3,7 @@ clear;
 clc;
 
 %% Get the directories and, for each directory, 
-% the number of flies, the region that is being imaged, and whether one or two color imaging was performed.
+% set the number of flies, the region that is being imaged, and whether one or two color imaging was performed.
 % Go to the root directory
 dirRoot = uigetdir('C:\Users\turnerevansd\Downloads\Data','Select the root directory');
 cd(dirRoot);
@@ -20,13 +20,161 @@ for dirNow = 1:numDirs
         else
             colorName = 'Red';
         end
-        allPathname{dirNow}.imRegion{colorID} = input(strcat(colorName, ' region that was imaged? (EB,PB,FB,NO,other) '));
+        allPathname{dirNow}.imRegion{colorID} = input(strcat(colorName, ' region that was imaged? (EB,PB,FB,other) '));
         while ~(strcmp(allPathname{dirNow}.imRegion{colorID},'EB') ||...
                 strcmp(allPathname{dirNow}.imRegion{colorID},'PB') ||...
                 strcmp(allPathname{dirNow}.imRegion{colorID},'FB') ||...
-                strcmp(allPathname{dirNow}.imRegion{colorID},'NO') ||...
                 strcmp(allPathname{dirNow}.imRegion{colorID},'other'))
-            allPathname{dirNow}.imRegion{colorID} = input('Region that was imaged? (EB,PB,NO,other)');
+            allPathname{dirNow}.imRegion{colorID} = input('Region that was imaged? (EB,PB,other)');
+        end
+    end
+end
+
+%% Step through each imaging stack in the directory, performing image registration and saving the shift coordinates
+
+% Specify the number of pixels in from the edge to use for image
+% registration
+Px = 10;
+
+for dirNow = 1:numDirs
+    fileNames = dir(allPathname{dirNow}.name);
+    cd(allPathname{dirNow}.name);
+    allPathnameNow = strcat(allPathname{dirNow}.name,'\');
+    
+    % Specify the path where the files will be saved
+    newPath = strrep(allPathnameNow,'Downloads\Data','Documents\RawAnalysis');
+    if exist(newPath,'dir') == 0
+        mkdir(newPath);
+    end
+    
+    for tifID = 3:length(fileNames)
+        tifName = fileNames(tifID).name;
+        % Process each trial
+        if strcmp(tifName(end-3:end),'.tif') & ~contains(tifName,'Anatomy')
+            
+            % Set the filename
+            fName = strcat(newPath,tifName(1:end-4));
+
+            % Get the tiff header info
+            fullpath = strcat(allPathnameNow,tifName);
+            reader = ScanImageTiffReader(fullpath);
+            desc = reader.metadata;
+            planeLoc = strfind(desc, 'numFramesPerVolume');
+            discardLoc = strfind(desc, 'numDiscardFlybackFrames');
+            num_planes = str2num(desc(planeLoc+21:planeLoc+22));
+            num_discards = str2num(desc(discardLoc+26));
+
+            % Load the tifStack
+            vol=ScanImageTiffReader(fullpath).data();
+            width = size(vol,1);
+            height = size(vol,2);
+            num_images = size(vol,3);
+            if allPathname{dirNow}.numColors == 1
+                numVolumes = floor(num_images/num_planes);
+                
+                % Find the max intensity projection
+                stackMaxInt = double(zeros(height,width,numVolumes));
+                miniStack = double(zeros(height,width,num_planes-num_discards));
+                h = waitbar(0.0,'Loading TIFF stack (max calc)...');
+                set(h,'Position',[50 50 360 72]);
+                set(h,'Name','Loading TIFF stack...');
+                for incIm = 1:num_images
+                    if mod(incIm,100)==0
+                        waitbar(incIm/num_images,h,['Loading frame# ' num2str(incIm) ' out of ' num2str(num_images)]);
+                    end
+                    if mod(incIm,num_planes) ~= 0 & mod(incIm,num_planes) < num_planes-num_discards+1
+                        miniStack(:,:,mod(incIm,num_planes)) = vol(:,:,incIm)';
+                        if mod(incIm,num_planes) == num_planes-num_discards
+                            stackMaxInt(:,:,ceil((incIm)/num_planes)) = max(miniStack,[],3);
+                        end
+                    end
+                end
+                delete(h);
+                
+                % Register the stacks
+                [stackReg, regCoords] = imRegSimple(stackMaxInt, Px); % Image correct the stacks
+            else
+                numVolumes = floor(num_images/num_planes/2);
+                
+                % Find the max intensity projection
+                RstackMaxInt = double(zeros(height,width,numVolumes));
+                stackMaxInt = double(zeros(height,width,numVolumes));
+                RminiStack = double(zeros(height,width,(num_planes-num_discards)));
+                GminiStack = double(zeros(height,width,(num_planes-num_discards)));
+                h = waitbar(0.0,'Loading TIFF stack (mean calc)...');
+                set(h,'Position',[50 50 360 72]);
+                set(h,'Name','Loading TIFF stack...');
+                for incIm = 1:num_images
+                    if mod(incIm,100)==0
+                        waitbar(incIm/num_images,h,['Loading frame# ' num2str(incIm) ' out of ' num2str(num_images)]);
+                    end
+                    if mod(ceil(incIm/2),num_planes) ~= 0
+                        if mod(incIm,2)
+                            RminiStack(:,:,mod(ceil(incIm/2),num_planes)) = vol(:,:,incIm)';
+                        else
+                            GminiStack(:,:,mod(ceil(incIm/2),num_planes)) = vol(:,:,incIm)';
+                        end
+                        if (mod(incIm/2,num_planes) == num_planes-num_discards)
+                            RstackMaxInt(:,:,ceil(incIm/(2*num_planes))) = max(RminiStack,[],3);
+                            stackMaxInt(:,:,ceil(incIm/(2*num_planes))) = max(GminiStack,[],3);
+                        end
+                    end
+                end
+                delete(h);
+                
+                % Register the stacks
+                [stackReg RstackReg, regCoords] = imRegSimple2Color(stackMaxInt, RstackMaxInt, Px); % Image correct the stacks
+            end
+            
+            % Find the mean registered images (for use specifyng ROIs
+            % later)
+            meanOrigStack = mean(stackMaxInt,3);
+            meanRegStack = mean(stackReg,3);
+            if allPathname{dirNow}.numColors == 2
+                meanOrigStack_R = mean(RstackMaxInt,3);
+                meanRegStack_R = mean(RstackReg,3);
+            end
+            
+            % Save the appropriate data
+            if allPathname{dirNow}.numColors == 1
+                save(strcat(fName,'_RegDat.mat'), 'Px','regCoords','meanRegStack');
+            else
+                save(strcat(fName,'_RegDat.mat'), 'Px','regCoords','meanRegStack','meanRegStack_R');
+            end
+            
+            reg = figure('units','normalized','outerposition',[0 0 1 1]);
+            subplot(2,2,1);
+            imagesc(meanOrigStack)
+            axis equal;
+            axis off;
+            title('stack as taken');
+
+            subplot(2,2,2);
+            imagesc(meanRegStack)
+            axis equal;
+            axis off;
+            title('registered stack');
+            
+            if allPathname{dirNow}.numColors == 2
+                subplot(2,2,3);
+                imagesc(meanOrigStack_R)
+                axis equal;
+                axis off;
+                title('stack as taken');
+
+                subplot(2,2,4);
+                imagesc(meanRegStack_R)
+                axis equal;
+                axis off;
+                title('registered stack');
+            end
+
+            colormap(brewermap(64, 'Blues'));
+            
+            set(reg,'PaperPositionMode','manual','PaperOrientation','landscape','PaperUnits','inches','PaperPosition',[0 0 11 8.5]);
+            print(reg,strcat(fName,'_Registered'),'-dpdf'); 
+            
+            delete(reg);
         end
     end
 end
@@ -40,16 +188,32 @@ for dirNow = 1:numDirs
 end
 
 %% Set the ROIs
+clear stackMaxInt;
+
 for dirNow = 1:numDirs
     fileNames = dir(allPathname{dirNow}.name);
     cd(allPathname{dirNow}.name);
     allPathnameNow = strcat(allPathname{dirNow}.name,'\');
+    
+    % Specify the path where the files are saved
+    newPath = strrep(allPathnameNow,'Downloads\Data','Documents\RawAnalysis');
+    
     for tifID = 3:length(fileNames)
         tifName = fileNames(tifID).name;
         % Process each trial
         if strcmp(tifName(end-3:end),'.tif') & ~contains(tifName,'Anatomy')
             tifName
-            ROIs = SetROIs(allPathnameNow,tifName,allPathname{dirNow}.imRegion,allPathname{dirNow}.numColors);
+            
+            % Get the filename and load the data
+            fName = strcat(newPath,tifName(1:end-4));
+            load(strcat(fName,'_RegDat.mat'));
+            
+            stackMaxInt{1} = meanRegStack;
+            if exist('meanRegStack_R')
+                stackMaxInt{2} = meanRegStack_R;
+            end
+               
+            ROIs = SetROIsClean(allPathnameNow,tifName,allPathname{dirNow}.imRegion,allPathname{dirNow}.numColors, stackMaxInt);
             
             newPath = strrep(allPathnameNow,'Downloads\Data','Documents\RawAnalysis');
             ROIfName = strcat(newPath,tifName(1:end-4));
@@ -60,7 +224,7 @@ for dirNow = 1:numDirs
     end 
 end
 
-%% Use the ROIs to get the DF/F for each ROI for the data
+%% For each stack calculate ROIs
 
 for dirNow = 1:numDirs
     fileNames = dir(allPathname{dirNow}.name);
@@ -83,55 +247,111 @@ for dirNow = 1:numDirs
                         strcmp(moveNameParts{end-2},tifNameParts{end-2}))
                     moveName
                     
-                    % Load the stacks
+                    clear stackMaxInt stackReg;
+                    
+                    % Get the maximum intensity stack(s)
+                    if allPathname{dirNow}.numColors == 1
+                        [stackMaxIntNow, stackMean] = ImDatLoadBigtiff(tifName,allPathnameNow,0);
+                        stackMaxInt{1} = stackMaxIntNow;
+                    elseif allPathname{dirNow}.numColors == 2
+                        [RstackMaxInt, GstackMaxInt, RstackMean, GstackMean] =...
+                            ImDatLoadBigtiff2Color(tifName,allPathnameNow,0);
+                        stackMaxInt{1} = GstackMaxInt;
+                        stackMaxInt{2} = RstackMaxInt;
+                    end
+                    
+                    % Image correct the stacks:
+                    % Load the registration coordinates
+                    newPath = strrep(allPathnameNow,'Downloads\Data','Documents\RawAnalysis');
+                    ROIfName = strcat(newPath,tifName(1:end-4));
+                    load(strcat(ROIfName,'_RegDat','.mat'));
+                    
+                    % Create blank stacks for the registered images
+                    imWidth = size(stackMaxInt{1},1);
+                    imHeight = size(stackMaxInt{1},2);
+                    stackReg{1} = zeros(size(stackMaxInt{1}));
+                    if allPathname{dirNow}.numColors == 2
+                        stackReg{2} = zeros(size(stackMaxInt{2}));
+                    end
+
+                    % Specify the registration image and the area to be registered
+                    regArea = [Px Px size(stackMaxInt{1},1)-Px*2+1 size(stackMaxInt{1},2)-Px*2+1];
+
+                    % relative offset of position of subimages
+                    rect_offset = [Px
+                                   Px];
+
+                    h = waitbar(0.0,'Registering stack...');
+                    set(h,'Position',[50 50 360 72]);
+                    set(h,'Name','Registering images...');
+
+                    % Register each image
+                    for imNow = 1:size(stackMaxInt{1},3)
+
+                        waitbar(imNow/size(stackMaxInt{1},3),h,['Loading frame# ' num2str(imNow) ' out of ' num2str(size(stackMaxInt{1},3))]);
+
+                        for colNow = 1:allPathname{dirNow}.numColors
+                        % Choose subregion of image
+                            current_im = stackMaxInt{colNow}(:,:,imNow);
+                            sub_EB = imcrop(current_im,regArea);
+
+                            % coordinates for placing it in the registered stack
+                            xbegin = regCoords(1,imNow);
+                            xend   = regCoords(2,imNow);
+                            ybegin = regCoords(3,imNow);
+                            yend   = regCoords(4,imNow);
+
+                            % put it in the stack
+                            stackMaxIntRegTMP = zeros(imWidth+2*Px,imHeight+2*Px);
+                            stackMaxIntRegTMP(ybegin:2*Px+yend,xbegin:2*Px+xend) = stackMaxInt{colNow}(:,:,imNow);
+                            stackReg{colNow}(:,:,imNow) = imcrop(stackMaxIntRegTMP,[Px+1 Px+1 imWidth-1 imHeight-1]);
+                        end
+
+                    end
+
+                    delete(h);
+                                         
+                    % Rotate the stacks
                     if strcmp(allPathname{dirNow}.imRegion{1},'EB') || strcmp(allPathname{dirNow}.imRegion{1},'FB')
                         rotAng = -70;
                     else
                         rotAng = 90;
                     end
-    
+                    
                     if allPathname{dirNow}.numColors == 1
-                        [stackMaxInt, stackMean] = ImDatLoadBigtiff(tifName,allPathnameNow,0);
-                        clear stackMean;
-                        stackReg = imRegSimple(stackMaxInt, 10); % Image correct the stacks
-                        % Rotate the stacks
-                        stkMean = mean(stackReg,3);
+                        stkMean = mean(stackReg{1},3);
                         stkMean = imrotate(stkMean,rotAng);
-                        stackMaxIntRot = zeros([size(stkMean) size(stackReg,3)]);
-                        for frame = 1:size(stackReg,3)
-                            stackMaxIntRot(:,:,frame) = imrotate(stackReg(:,:,frame),rotAng);
+                        stackMaxIntRot = zeros([size(stkMean) size(stackReg{1},3)]);
+                        for frame = 1:size(stackReg{1},3)
+                            stackMaxIntRot(:,:,frame) = imrotate(stackReg{1}(:,:,frame),rotAng);
                         end
-                    elseif allPathname{dirNow}.numColors == 2
-                        [RstackMaxInt, GstackMaxInt, RstackMean, GstackMean] =...
-                            ImDatLoadBigtiff2Color(tifName,allPathnameNow,0);
-                        clear RstackMean GstackMean;
-                        [GstackReg RstackReg] = imRegSimple2Color(GstackMaxInt, RstackMaxInt, 10); % Image correct the stacks
-                        % Rotate the stacks so that the EB is aligned
-                        RMean = mean(RstackReg,3);
-                        RMean = imrotate(RMean,rotAng);
-                        GMean = mean(GstackReg,3);
-                        GMean = imrotate(GMean,rotAng);
-                        RstackMaxIntRot = zeros([size(RMean) size(RstackReg,3)]);
-                        GstackMaxIntRot = zeros([size(GMean) size(GstackReg,3)]);
-                        for frame = 1:size(RstackMaxIntRot,3)
-                            RstackMaxIntRot(:,:,frame) = imrotate(RstackReg(:,:,frame),rotAng);
-                            GstackMaxIntRot(:,:,frame) = imrotate(GstackReg(:,:,frame),rotAng);
+                    else
+                        for colNow = 1:2
+                            stkMean = mean(stackReg{colNow},3);
+                            stkMean = imrotate(stkMean,rotAng);
+                            stackMaxIntRot = zeros([size(stkMean) size(stackReg{colNow},3)]);
+                            for frame = 1:size(stackReg{colNow},3)
+                                stackMaxIntRot(:,:,frame) = imrotate(stackReg{colNow}(:,:,frame),rotAng);
+                            end
+                            if colNow == 1
+                                GstackMaxIntRot = stackMaxIntRot;
+                            else
+                                RstackMaxIntRot = stackMaxIntRot;
+                            end
                         end
                     end
-                    
+
                     % Load the movement data
                     positionDat = VRDatLoad(moveName,allPathnameNow,0);
                     
                     % Load the ROIs
-                    newPath = strrep(allPathnameNow,'Downloads\Data','Documents\RawAnalysis');
-                    ROIfName = strcat(newPath,tifName(1:end-4));
                     load(strcat(ROIfName,'_ROIs','.mat'));
                     numROIsG=size(ROIs{1},1);
                     if allPathname{dirNow}.numColors == 2
                         numROIsR=size(ROIs{2},1);
                     end
                     if allPathname{dirNow}.numColors == 1
-                        numPlanes = length(positionDat.tFrameGrab)/length(stackMaxInt);
+                        numPlanes = length(positionDat.tFrameGrab)/length(stackMaxInt{1});
                     elseif allPathname{dirNow}.numColors == 2
                         numPlanes = length(positionDat.tFrameGrab)/length(RstackMaxInt);
                     end
@@ -164,7 +384,7 @@ for dirNow = 1:numDirs
                         end
                     end
                     delete(h);
-                        
+                    
                     % Plot the ROI on each figure and calculate the average
                     h = waitbar(0.0,'Calculating ROIs...');
                     set(h,'Position',[50 50 360 72]);

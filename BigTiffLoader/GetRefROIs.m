@@ -100,253 +100,33 @@ function GetRefROIs(imRegion,numColors)
 
     % Show the average MIP and get ROIs
     if numColors == 1
-        position = {};
         
         % Show the stack
         A = mean(stackMaxIntRot,3);
-        hf = figure;
+        hf = figure('units','normalized','outerposition',[0 0 1 1]);
         hold;
         imshow(A,[0 max(max(A))]);
+        axis equal;
+        axis off;
     
-        % Get the ROI
-        if strcmp(imRegion{1},'EB')
-            % Specify an outer ellipse
-            hOut = imellipse;
-            posNow = wait(hOut);
-            position{1} = posNow;
-
-            % Specify an inner ellipse
-            hIn = imellipse;
-            posNow = wait(hIn);
-            position{2} = posNow;
-        elseif strcmp(imRegion{1},'PB')
-            for pgs = 1:18
-                h = impoly;
-                posNow = wait(h);
-                position{pgs} = posNow;
-            end
-        elseif strcmp(imRegion{1},'FB')
-            for pgs = 1:8
-                h = impoly;
-                posNow = wait(h);
-                position{pgs} = posNow;
-            end
-        elseif strcmp(imRegion{1},'NO')
-            % Specify a left ellipse
-            hOut = imellipse;
-            posNow = wait(hOut);
-            position{1} = posNow;
-
-            % Specify a right ellipse
-            hIn = imellipse;
-            posNow = wait(hIn);
-            position{2} = posNow;
-        elseif strcmp(imRegion{1},'other')
-            num_ellipses = input('Number of ellipses?');
-            num_pgons = input('Number of polygons?');
-            num_ROIs = num_ellipses+num_pgons;
-
-            ROIs = zeros(num_ROIs,size(stackMaxInt,1),size(stackMaxInt,2));
-            ROIverts = cell(num_ROIs,1);
-            for els = 1:num_ellipses
-                h = imellipse;
-                posNow = wait(h);
-                position{els} = posNow;
-            end
-            for pgs = 1:num_pgons
-                h = impoly;
-                posNow = wait(h);
-                position{num_ellipses+pgs} = posNow;
-            end
-        elseif 1
-            disp('Functionality not yet enabled');
+        position = OneColorROIs(stackMaxIntRot, imRegion, {});
+        
+        done = input('Fix the ROIs (y or n)');
+        
+        while strcmp(done,'y')
+            cla;
+            imshow(A,[0 max(max(A))]);
+            axis equal;
+            axis off;
+            
+            position = OneColorROIs(stackMaxIntRot, imRegion, position);
+            
+            done = input('Fix the ROIs (y or n)');
         end
+        
         delete(hf);
     elseif numColors == 2
-        
-        positionG = {};
-        positionR = {};
-        if strcmp(imRegion{1},'EB')
-            % Get the ROIs for the green channel
-            A = mean(GstackMaxIntRot,3);
-            hf = figure;
-            hold;
-            imshow(A,[0 max(max(A))]);
-            
-            % Specify an outer ellipse
-            hOut = imellipse;
-            posNow = wait(hOut);
-            positionG{1} = posNow;
-
-            % Specify an inner ellipse
-            hIn = imellipse;
-            posNow = wait(hIn);
-            positionG{2} = posNow;
-            
-            delete(hf);
-        elseif strcmp(imRegion{1},'PB')
-            num_glomeruli = 18;
-            pgons = {};
-            scaleFact = round(size(GstackMaxIntRot,1)/70);
-            defaultGlomShape = [1,0;3,0;4,1;4,4;3,5;1,5;0,4;0,1];
-            defaultGlomShape = scaleFact*defaultGlomShape;
-            glomOffsets = [-7.5,2;-7.5,0.5;-6.5,-0.5;-5.5,-1.5;-4.5,-1.5;-3.5,-1.25;-2.5,-1;-1.5,-0.75;-0.5,-0.5];
-            glomOffsets = vertcat(glomOffsets,flipud(glomOffsets.*[-1,1]));
-            glomOffsets = 0.5*[size(GstackMaxIntRot,1),size(GstackMaxIntRot,2)]+...
-                4*scaleFact*glomOffsets;
-            A = mean(RstackMaxIntRot,3);
-            Rim = zeros(size(A,1),size(A,2),3);
-            Rim(:,:,1) = (A-min(min(A)))./(max(max(A))-min(min(A)));
-            B = mean(GstackMaxIntRot,3);
-            Gim = zeros(size(B,1),size(B,2),3);
-            Gim(:,:,2) = (B-min(min(B)))./(max(max(B))-min(min(B)));
-            overlayIm = Rim+Gim;
-            
-            hf = figure;
-            subplot(2,3,1);
-            imshow(Rim);
-            subplot(2,3,4);
-            imshow(Gim);
-            subplot(2,3,[2:3 5:6]);
-            imshow(overlayIm);
-            
-            RMult = input('Red channel multiplier? ');
-            GMult = input('Green channel multiplier? ');
-            
-            subplot(2,3,1);
-            cla;
-            imshow(RMult*Rim);
-            subplot(2,3,4);
-            cla;
-            imshow(GMult*Gim);
-            subplot(2,3,[2:3 5:6]);
-            cla;
-            hold;
-            imshow(RMult*Rim+GMult*Gim);
-            
-            for pgs = 1:num_glomeruli
-                pgons{pgs} = impoly(gca,defaultGlomShape+glomOffsets(pgs,:));
-                api = iptgetapi(pgons{pgs});
-                api.setColor([(pgs-1)/(num_glomeruli-1) 1 1-(pgs-1)/(num_glomeruli-1)]);
-            end
-            wait(pgons{1});
-            
-            for pgs = 1:num_glomeruli
-                position = getPosition(pgons{pgs});
-                if contains(tifName,'Anatomy')
-                    position = 256./size(RstackMaxIntRot,1).*position;
-                end
-                
-                positionR{pgs} = position;
-                positionG{pgs} = position;
-            end      
-            delete(hf);
-        elseif strcmp(imRegion{1},'FB')
-            % Get the ROIs for the green channel
-            A = mean(GstackMaxIntRot,3);
-            hf = figure;
-            hold;
-            imshow(A,[0 max(max(A))]);
-            
-            for pgs = 1:8
-                h = impoly;
-                posNow = wait(h);
-                positionG{pgs} = posNow;
-            end
-            delete(hf);
-        elseif strcmp(imRegion{1},'other')
-            % Get the ROIs for the green channel
-            A = mean(GstackMaxIntRot,3);
-            hf = figure;
-            hold;
-            imshow(A,[0 max(max(A))]);
-            
-            num_ellipses = input('Number of ellipses?');
-            num_pgons = input('Number of polygons?');
-
-            for els = 1:num_ellipses
-                h = imellipse;
-                posNow = wait(h);
-                positionG{els} = posNow;
-            end
-            for pgs = 1:num_pgons
-                h = impoly;
-                posNow = wait(h);
-                positionG{num_ellipses+pgs} = posNow;
-            end
-            delete(hf);
-        end
-            
-        if strcmp(imRegion{2},'EB')
-            % Show the red channel
-            A = mean(RstackMaxIntRot,3);
-            hf = figure;
-            hold;
-            imshow(A,[0 max(max(A))]);
-        
-            % Specify an outer ellipse
-            hOut = imellipse;
-            posNow = wait(hOut);
-            positionR{1} = posNow;
-
-            % Specify an inner ellipse
-            hIn = imellipse;
-            posNow = wait(hIn);
-            positionR{2} = posNow;
-            
-            delete(hf);
-        elseif strcmp(imRegion{2},'FB')
-            % Get the ROIs for the green channel
-            A = mean(RstackMaxIntRot,3);
-            hf = figure;
-            hold;
-            imshow(A,[0 max(max(A))]);
-            
-            for pgs = 1:8
-                h = impoly;
-                posNow = wait(h);
-                positionR{pgs} = posNow;
-            end
-            delete(hf);
-        elseif strcmp(imRegion{2},'NO')
-            % Get the ROIs for the green channel
-            A = mean(RstackMaxIntRot,3);
-            hf = figure;
-            hold;
-            imshow(A,[0 max(max(A))]);
-            
-            % Specify a left ellipse
-            hOut = imellipse;
-            posNow = wait(hOut);
-            positionR{1} = posNow;
-
-            % Specify a right ellipse
-            hIn = imellipse;
-            posNow = wait(hIn);
-            positionR{2} = posNow;
-            
-            delete(hf);
-        elseif strcmp(imRegion{2},'other')
-            % Get the ROIs for the red channel
-            A = mean(RstackMaxIntRot,3);
-            hf = figure;
-            hold;
-            imshow(A,[0 max(max(A))]);
-            
-            num_ellipses = input('Number of ellipses?');
-            num_pgons = input('Number of polygons?');
-
-            for els = 1:num_ellipses
-                h = imellipse;
-                posNow = wait(h);
-                positionR{els} = posNow;
-            end
-            for pgs = 1:num_pgons
-                h = impoly;
-                posNow = wait(h);
-                positionR{num_ellipses+pgs} = posNow;
-            end
-        end
+        [positionG, positionR] = TwoColorROIs(GstackMaxIntRot, RstackMaxIntRot,imRegion);
     end
     
     newPath = strrep(allPathname,'Downloads\Data','Documents\RawAnalysis');

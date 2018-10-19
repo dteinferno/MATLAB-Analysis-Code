@@ -256,7 +256,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
             end
             delete(hf);
             
-        elseif strcmp(imRegion{1},'other')
+        elseif strcmp(imRegion{1},'FB') || strcmp(imRegion{1},'other')
             A = mean(GstackMaxIntRot,3);
             
             hf = figure;
@@ -314,7 +314,7 @@ function [ROIs] = SetROIs(allPathname,tifName,imRegion,numColors)
             end
             
             delete(hf);
-        elseif strcmp(imRegion{2},'FB')
+        elseif strcmp(imRegion{2},'FB') || strcmp(imRegion{2},'other')
             % Show the red channel
             A = mean(RstackMaxIntRot,3);
             hf = figure;
