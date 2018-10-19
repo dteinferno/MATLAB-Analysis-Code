@@ -1,10 +1,11 @@
-function [RegStackReg,OtherStackReg] = imRegSimple2Color(RegStack, OtherStack,Px)
+function [RegStackReg,OtherStackReg, RegCoords] = imRegSimple2Color(RegStack, OtherStack,Px)
 
 % Create blank stacks for the registered images
 imWidth = size(RegStack,1);
 imHeight = size(RegStack,2);
 RegStackReg = zeros(size(RegStack));
 OtherStackReg = zeros(size(OtherStack));
+RegCoords = zeros(4,size(RegStack,3));
 
 % Specify the registration image and the area to be registered
 ref_im = mean(RegStack,3);
@@ -39,8 +40,8 @@ for imNow = 1:size(RegStack,3)
 
     % total offset
     offset = corr_offset;
-    xoffset = offset(1);
-    yoffset = offset(2);
+    xoffset = max(0,offset(1));
+    yoffset = max(0,offset(2));
 
     % coordinates for placing it in the registered stack
     xbegin = round(xoffset+1);
@@ -62,6 +63,11 @@ for imNow = 1:size(RegStack,3)
     OtherStackRegTMP = zeros(imWidth+2*Px,imHeight+2*Px);
     OtherStackRegTMP(ybegin:2*Px+yend,xbegin:2*Px+xend) = OtherStack(:,:,imNow);
     OtherStackReg(:,:,imNow) = imcrop(OtherStackRegTMP,[Px+1 Px+1 imWidth-1 imHeight-1]);
+    
+    RegCoords(1,imNow) = xbegin;
+    RegCoords(2,imNow) = xend;
+    RegCoords(3,imNow) = ybegin;
+    RegCoords(4,imNow) = yend;
 end
 
 delete(h);

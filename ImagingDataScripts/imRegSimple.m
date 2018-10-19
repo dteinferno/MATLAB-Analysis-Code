@@ -1,9 +1,10 @@
-function [RegStackReg] = imRegSimple(RegStack,Px)
+function [RegStackReg, RegCoords] = imRegSimple(RegStack,Px)
 
 % Create blank stacks for the registered images
 imWidth = size(RegStack,1);
 imHeight = size(RegStack,2);
 RegStackReg = zeros(size(RegStack));
+RegCoords = zeros(4,size(RegStack,3));
 
 % Specify the registration image and the area to be registered
 ref_im = mean(RegStack,3);
@@ -58,6 +59,10 @@ for imNow = 1:size(RegStack,3)
     RegStackRegTMP = zeros(imWidth+2*Px,imHeight+2*Px);
     RegStackRegTMP(ybegin:2*Px+yend,xbegin:2*Px+xend) = RegStack(:,:,imNow);
     RegStackReg(:,:,imNow) = imcrop(RegStackRegTMP,[Px+1 Px+1 imWidth-1 imHeight-1]);
+    RegCoords(1,imNow) = xbegin;
+    RegCoords(2,imNow) = xend;
+    RegCoords(3,imNow) = ybegin;
+    RegCoords(4,imNow) = yend;
 end
 
 delete(h);
